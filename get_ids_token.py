@@ -11,12 +11,12 @@ def get_salt_and_execution(redir_uri):  # 拿到密码加密所需的盐和execu
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) \
         Chrome/117.0.5938.63 Safari/537.36",
-        "Referer": "http://libyy.qfnu.edu.cn/"
+        "Referer": "http://libyy.qfnu.edu.cn/",
     }
     response_data = session.get(url=redir_uri, headers=headers).text
     soup_decoded_data = BeautifulSoup(response_data, "html.parser")
-    execution_data = soup_decoded_data.find(id='execution').get('value')
-    salt_data = soup_decoded_data.find(id='pwdEncryptSalt').get('value')
+    execution_data = soup_decoded_data.find(id="execution").get("value")
+    salt_data = soup_decoded_data.find(id="pwdEncryptSalt").get("value")
     return salt_data, execution_data
 
 
@@ -26,10 +26,7 @@ def captcha_check(username):  # 检查是否需要验证码
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) \
             Chrome/117.0.5938.63 Safari/537.36"
     }
-    data = {
-        "username": username,
-        "_": int(round(time.time() * 1000))
-    }
+    data = {"username": username, "_": int(round(time.time() * 1000))}
     res = session.get(url=uri, params=data, headers=headers)
     if "true" in res.text:
         return True
@@ -38,7 +35,9 @@ def captcha_check(username):  # 检查是否需要验证码
 
 
 def get_captcha():  # 获取验证码
-    uri = "http://ids.qfnu.edu.cn/authserver/getCaptcha.htl?" + str(int(round(time.time() * 1000)))
+    uri = "http://ids.qfnu.edu.cn/authserver/getCaptcha.htl?" + str(
+        int(round(time.time() * 1000))
+    )
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) \
                 Chrome/117.0.5938.63 Safari/537.36"
@@ -57,7 +56,7 @@ def get_token(username, password, redir_uri):  # 返回带有ticket的链接
             cap_pic = get_captcha()
             cap_res = get_ocr_res(cap_pic)
             cap_res = cap_res.lower()
-        except :
+        except:
             print("[+]-----获取或识别验证码失败")
     else:
         print("[+]-----无需验证码，尝试获取Token")
@@ -66,7 +65,7 @@ def get_token(username, password, redir_uri):  # 返回带有ticket的链接
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) \
         Chrome/117.0.5938.63 Safari/537.36",
-        "Content-Type": "application/x-www-form-urlencoded"
+        "Content-Type": "application/x-www-form-urlencoded",
     }
     data = {
         "username": username,
@@ -76,13 +75,18 @@ def get_token(username, password, redir_uri):  # 返回带有ticket的链接
         "cllt": "userNameLogin",
         "dllt": "generalLogin",
         "lt": "",
-        "execution": execution_data
+        "execution": execution_data,
     }
 
     res = session.post(url=redir_uri, headers=headers, data=data, allow_redirects=False)
     return res.headers["Location"]
 
 
-if __name__ == '__main__':
-    print(get_token('your_account', 'your_password',
-                    "http://ids.qfnu.edu.cn/authserver/login?service=http%3A%2F%2Fzhjw.qfnu.edu.cn%2Fsso.jsp"))
+if __name__ == "__main__":
+    print(
+        get_token(
+            "2022416246",
+            "qfnuWS0814@",
+            "http://ids.qfnu.edu.cn/authserver/login?service=http%3A%2F%2Fzhjw.qfnu.edu.cn%2Fsso.jsp",
+        )
+    )
