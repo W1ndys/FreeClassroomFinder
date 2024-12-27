@@ -1,0 +1,5 @@
+ddddocr
+cryptography
+requests
+bs4
+beautifulsoup4
