@@ -89,13 +89,16 @@ def login(session, cookies, user_account, user_password, random_code, encoded):
     )
 
 
-def get_exam_page(session, cookies, headers):
+def get_exam_page(
+    session,
+    cookies,
+):
     """
     获取考试安排页面内容
     返回: 页面响应内容
     """
     target_url = "http://zhjw.qfnu.edu.cn/jsxsd/xsks/xsksap_list?xqlbmc=&sxxnxq=&dqxnxq=&ckbz=&xnxqid=2024-2025-1&xqlb=#/"
-    return session.get(target_url, cookies=cookies, headers=headers, timeout=1000)
+    return session.get(target_url, cookies=cookies, timeout=1000)
 
 
 def parse_exam_data(html_content):
@@ -170,8 +173,11 @@ def main():
     print("登录响应已保存到response.html文件中")
 
     # 获取考试页面
-    headers = {"User-Agent": "Mozilla/5.0 ..."}  # 简化的headers
-    exam_response = get_exam_page(session, cookies, headers)
+
+    exam_response = get_exam_page(
+        session,
+        cookies,
+    )
 
     # 保存考试页面
     with open("target_page.html", "w", encoding="utf-8") as f:
