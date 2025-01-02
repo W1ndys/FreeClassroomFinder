@@ -1,5 +1,8 @@
-ddddocr
-cryptography
+pytz
 requests
-bs4
+Pillow
 beautifulsoup4
+ics
+ddddocr
+Flask
+python-dotenv

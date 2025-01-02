@@ -6,6 +6,11 @@ from ics import Calendar, Event
 from datetime import datetime
 from captcha_ocr import get_ocr_res
 import os
+from pytz import timezone
+from dotenv import load_dotenv
+
+load_dotenv()
+
 
 # 设置基本的URL和数据
 RandCodeUrl = "http://zhjw.qfnu.edu.cn/verifycode.servlet"  # 验证码请求URL
@@ -89,10 +94,7 @@ def login(session, cookies, user_account, user_password, random_code, encoded):
     )
 
 
-def get_exam_page(
-    session,
-    cookies,
-):
+def get_exam_page(session, cookies):
     """
     获取考试安排页面内容
     返回: 页面响应内容
@@ -111,7 +113,7 @@ def parse_exam_data(html_content):
 
     for row in soup.select("table#dataList tr")[1:]:
         cells = row.find_all("td")
-        if len(cells) < 7:
+        if len(cells) < 11:
             continue
 
         # 提取信息
@@ -123,12 +125,20 @@ def parse_exam_data(html_content):
         teacher = cells[5].text.strip()
         exam_time = cells[6].text.strip()
         location = cells[7].text.strip()
+        seat_number = cells[8].text.strip()
 
-        # 解析考试时间
+        # 解码考试时间
         date_str, time_range = exam_time.split(" ")
         start_time, end_time = time_range.split("~")
-        start_datetime = datetime.strptime(f"{date_str} {start_time}", "%Y-%m-%d %H:%M")
-        end_datetime = datetime.strptime(f"{date_str} {end_time}", "%Y-%m-%d %H:%M")
+
+        # 解析日期和时间，并设置为东八区时间
+        tz = timezone("Asia/Shanghai")
+        start_datetime = tz.localize(
+            datetime.strptime(f"{date_str} {start_time}", "%Y-%m-%d %H:%M")
+        )
+        end_datetime = tz.localize(
+            datetime.strptime(f"{date_str} {end_time}", "%Y-%m-%d %H:%M")
+        )
 
         # 创建一个事件
         event = Event()
@@ -136,7 +146,12 @@ def parse_exam_data(html_content):
         event.begin = start_datetime
         event.end = end_datetime
         event.location = location
-        event.description = f"课程编号: {course_code}, 校区: {campus}, 场次: {session}"
+        event.description = (
+            f"序号: {exam_number}, 校区: {campus}, 场次: {session}, "
+            f"课程编号: {course_code}, 座位号: {seat_number}, "
+            f"考试时间: {exam_time}, 技术支持: https://www.w1ndys.top , "
+            f"开发者qq: https://qm.qq.com/q/IeoRba7FmY"
+        )
 
         # 添加事件到日历
         calendar.events.add(event)
@@ -144,53 +159,102 @@ def parse_exam_data(html_content):
     return calendar
 
 
+def get_user_credentials():
+    """
+    获取用户账号和密码
+    返回: (user_account, user_password)
+    """
+    user_account = os.getenv("USER_ACCOUNT")
+    user_password = os.getenv("USER_PASSWORD")
+    print(f"用户名: {user_account}\n")
+    print(f"密码: {user_password}\n")
+    return user_account, user_password
+
+
+def simulate_login(user_account, user_password):
+    """
+    模拟登录过程
+    返回: (session对象, cookies字典)
+    抛出:
+        Exception: 当验证码错误时
+    """
+    session, cookies, data_str = get_initial_session()
+
+    for attempt in range(3):  # 尝试三次
+        random_code = handle_captcha(session, cookies)
+        print(f"验证码: {random_code}")
+        encoded = generate_encoded_string(data_str, user_account, user_password)
+        response = login(
+            session, cookies, user_account, user_password, random_code, encoded
+        )
+
+        # 检查响应状态码和内容
+        if response.status_code == 200:
+            if "验证码错误!!" in response.text:
+                print(f"验证码识别错误，重试第 {attempt + 1} 次")
+                continue  # 继续尝试
+            if "密码错误" in response.text:
+                raise Exception("用户名或密码错误")
+            return session, cookies
+        else:
+            raise Exception("登录失败")
+
+    raise Exception("验证码识别错误，请重试")
+
+
+def save_response_to_file(content, filename, description):
+    """
+    保存响应内容到文件
+    参数:
+        content: 要保存的内容
+        filename: 文件名
+        description: 描述信息
+    """
+    with open(filename, "w", encoding="utf-8") as f:
+        f.write(content)
+    print(f"{description}已保存到{filename}文件中")
+
+
+def save_calendar_to_file(calendar, filename):
+    """
+    保存日历到文件
+    参数:
+        calendar: Calendar对象
+        filename: 文件名
+    """
+    with open(filename, "w", encoding="utf-8") as f:
+        f.write(calendar.serialize())
+    print(f"考试安排已保存到{filename}文件中")
+
+
 def main():
     """
     主函数，协调整个程序的执行流程
     """
+    print("\n" * 30)
+    print(f"\n{'*' * 10} 曲阜师范大学教务系统模拟登录脚本 {'*' * 10}\n")
+    print("By W1ndys")
+    print("https://github.com/W1ndys")
+    print("\n\n")
+
     # 获取环境变量
-    user_account = os.getenv("USER_ACCOUNT")
-    user_password = os.getenv("USER_PASSWORD")
+    user_account, user_password = get_user_credentials()
+    if not user_account or not user_password:
+        print("请在.env文件中设置USER_ACCOUNT和USER_PASSWORD环境变量\n")
+        # 重置.env文件
+        with open(".env", "w", encoding="utf-8") as f:
+            f.write("USER_ACCOUNT=\nUSER_PASSWORD=")
+        return
 
-    # 初始化会话
-    session, cookies, data_str = get_initial_session()
-
-    # 处理验证码
-    random_code = handle_captcha(session, cookies)
-    print(f"验证码: {random_code}")
-
-    # 生成encoded字符串
-    encoded = generate_encoded_string(data_str, user_account, user_password)
-
-    # 执行登录
-    response = login(
-        session, cookies, user_account, user_password, random_code, encoded
-    )
-
-    # 保存登录响应
-    with open("response.html", "w", encoding="utf-8") as f:
-        f.write(response.text)
-    print("登录响应已保存到response.html文件中")
+    # 模拟登录并获取会话
+    session, cookies = simulate_login(user_account, user_password)
 
     # 获取考试页面
-
-    exam_response = get_exam_page(
-        session,
-        cookies,
-    )
-
-    # 保存考试页面
-    with open("target_page.html", "w", encoding="utf-8") as f:
-        f.write(exam_response.text)
-    print("考试页面已保存到target_page.html文件中")
+    exam_response = get_exam_page(session, cookies)
 
     # 解析数据并生成日历
     calendar = parse_exam_data(exam_response.text)
-
-    # 保存日历文件
-    with open("考试安排.ics", "w", encoding="utf-8") as f:
-        f.write(calendar.serialize())
-    print("考试安排已保存到考试安排.ics文件中")
+    save_calendar_to_file(calendar, "2024_2025_1_exam_schedule.ics")
 
 
 if __name__ == "__main__":
